@@ -1,0 +1,32 @@
+{
+    "name": "@aseprite-preview/renderer",
+    "version": "0.0.1",
+    "description": "Aseprite canvas renderer with animation support",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "bun test",
+        "dev": "tsc --watch"
+    },
+    "keywords": [
+        "aseprite",
+        "renderer",
+        "canvas",
+        "animation",
+        "pixel-art"
+    ],
+    "author": "grimaldi-tech",
+    "license": "MIT",
+    "devDependencies": {
+        "@types/node": "^16.0.0",
+        "bun-types": "latest",
+        "typescript": "^4.9.4"
+    },
+    "dependencies": {
+        "@aseprite-preview/parser": "workspace:*"
+    },
+    "files": [
+        "dist/**/*"
+    ]
+}

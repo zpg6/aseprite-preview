@@ -10,8 +10,8 @@ import {
     LayerType,
     BlendMode,
     LoopDirection,
-} from "./asepriteTypes";
-import { AsepriteParser } from "./asepriteParser";
+    AsepriteParser,
+} from "@aseprite-preview/parser";
 
 /**
  * Rendering configuration options

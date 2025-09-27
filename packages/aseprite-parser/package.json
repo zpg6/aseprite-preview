@@ -1,0 +1,29 @@
+{
+    "name": "@aseprite-preview/parser",
+    "version": "0.0.1",
+    "description": "Aseprite file parser for .ase/.aseprite files",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "test": "bun test",
+        "dev": "tsc --watch"
+    },
+    "keywords": [
+        "aseprite",
+        "parser",
+        "ase",
+        "pixel-art"
+    ],
+    "author": "grimaldi-tech",
+    "license": "MIT",
+    "devDependencies": {
+        "@types/node": "^16.0.0",
+        "bun-types": "latest",
+        "typescript": "^4.9.4"
+    },
+    "dependencies": {},
+    "files": [
+        "dist/**/*"
+    ]
+}
