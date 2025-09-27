@@ -7,14 +7,13 @@ settings:
 importers:
 
   .:
-    dependencies:
+    devDependencies:
       '@aseprite-preview/parser':
         specifier: workspace:*
         version: link:packages/aseprite-parser
       '@aseprite-preview/renderer':
         specifier: workspace:*
         version: link:packages/aseprite-renderer
-    devDependencies:
       '@types/node':
         specifier: 16.x
         version: 16.18.126
