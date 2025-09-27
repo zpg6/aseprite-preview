@@ -89,6 +89,16 @@ body {
     fill: white;
 }
 
+/* Export button specific styles */
+.export-btn {
+    background: var(--vscode-button-secondaryBackground, var(--vscode-button-background));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+}
+
+.export-btn:hover {
+    background: var(--vscode-button-secondaryHoverBackground, var(--vscode-button-hoverBackground));
+}
+
 .frame-info {
     font-size: 12px;
     margin-left: 16px;

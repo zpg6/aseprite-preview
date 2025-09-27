@@ -14,6 +14,10 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand("aseprite-preview.toggleAnimation", () => {
             // Animation toggle is handled by the webview interface
             vscode.window.showInformationMessage("Toggle Animation");
+        }),
+        vscode.commands.registerCommand("aseprite-preview.exportAsPng", () => {
+            // Export is handled by the webview interface
+            vscode.commands.executeCommand("workbench.action.webview.openDeveloperTools");
         })
     );
 

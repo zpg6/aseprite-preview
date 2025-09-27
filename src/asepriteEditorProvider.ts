@@ -75,6 +75,14 @@ export class AsepriteEditorProvider implements vscode.CustomReadonlyEditorProvid
                         // Handle animation toggle from webview
                         vscode.commands.executeCommand("aseprite-preview.toggleAnimation");
                         break;
+                    case "exportPng":
+                        // Handle PNG export from webview
+                        this.handlePngExport(message.data, document);
+                        break;
+                    case "showError":
+                        // Handle error messages from webview
+                        vscode.window.showErrorMessage(message.message);
+                        break;
                 }
             },
             undefined,
@@ -118,6 +126,11 @@ export class AsepriteEditorProvider implements vscode.CustomReadonlyEditorProvid
             <span class="frame-info">
               Frame: <span id="currentFrame">1</span> / <span id="totalFrames">1</span>
             </span>
+            <button id="exportPng" class="control-btn export-btn" title="Export as PNG">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+              </svg>
+            </button>
           </div>
           <div class="settings">
             <label>
@@ -178,6 +191,45 @@ export class AsepriteEditorProvider implements vscode.CustomReadonlyEditorProvid
             text += possible.charAt(Math.floor(Math.random() * possible.length));
         }
         return text;
+    }
+
+    /**
+     * Handle PNG export request from webview
+     * Saves the exported PNG data to a file chosen by the user
+     */
+    private async handlePngExport(
+        exportData: { pngData: string; filename: string },
+        document: AsepriteDocument
+    ): Promise<void> {
+        try {
+            // Convert base64 data to buffer
+            const base64Data = exportData.pngData.replace(/^data:image\/png;base64,/, "");
+            const buffer = Buffer.from(base64Data, "base64");
+
+            // Get the original file's directory and name
+            const originalUri = document.uri;
+            const originalName = path.basename(originalUri.fsPath, path.extname(originalUri.fsPath));
+
+            // Show save dialog
+            const saveUri = await vscode.window.showSaveDialog({
+                defaultUri: vscode.Uri.joinPath(
+                    vscode.Uri.file(path.dirname(originalUri.fsPath)),
+                    `${originalName}.png`
+                ),
+                filters: {
+                    "PNG Images": ["png"],
+                },
+            });
+
+            if (saveUri) {
+                // Write the PNG file
+                await vscode.workspace.fs.writeFile(saveUri, buffer);
+                vscode.window.showInformationMessage(`PNG exported successfully: ${path.basename(saveUri.fsPath)}`);
+            }
+        } catch (error) {
+            console.error("Error exporting PNG:", error);
+            vscode.window.showErrorMessage(`Failed to export PNG: ${error}`);
+        }
     }
 
     /**

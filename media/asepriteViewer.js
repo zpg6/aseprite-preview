@@ -12,6 +12,7 @@
     const canvas = document.getElementById("asepriteCanvas");
     const playPauseBtn = document.getElementById("playPause");
     const stopBtn = document.getElementById("stop");
+    const exportPngBtn = document.getElementById("exportPng");
     const scaleSelect = document.getElementById("scaleSelect");
     const showGridCheckbox = document.getElementById("showGrid");
     const pixelPerfectCheckbox = document.getElementById("pixelPerfect");
@@ -35,6 +36,7 @@
     function setupEventListeners() {
         playPauseBtn.addEventListener("click", togglePlayback);
         stopBtn.addEventListener("click", stopPlayback);
+        exportPngBtn.addEventListener("click", exportCurrentFrameAsPng);
         scaleSelect.addEventListener("change", updateRender);
         showGridCheckbox.addEventListener("change", updateRender);
         pixelPerfectCheckbox.addEventListener("change", updatePixelPerfect);
@@ -297,6 +299,164 @@
         } else {
             // Animate all frames
             currentFrame = (currentFrame + 1) % asepriteData.frames.length;
+        }
+    }
+
+    function exportCurrentFrameAsPng() {
+        if (!renderer || !asepriteData) {
+            vscode.postMessage({
+                type: "showError",
+                message: "No sprite data available for export",
+            });
+            return;
+        }
+
+        try {
+            // Get current scale from UI
+            const currentScale = parseInt(scaleSelect.value);
+
+            // Create a clean export canvas without grid or UI elements
+            const exportCanvas = document.createElement("canvas");
+            const exportCtx = exportCanvas.getContext("2d");
+            const header = asepriteData.header;
+
+            // Set canvas size to scaled dimensions
+            exportCanvas.width = header.width * currentScale;
+            exportCanvas.height = header.height * currentScale;
+            exportCtx.imageSmoothingEnabled = !pixelPerfectCheckbox.checked;
+
+            // Clear with transparent background
+            exportCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+            // Get current frame
+            const frame = asepriteData.frames[currentFrame];
+            if (!frame) {
+                throw new Error("Invalid frame for export");
+            }
+
+            // Render the current frame to export canvas at the selected scale
+            frame.cels.forEach(cel => {
+                renderCelToCanvas(cel, exportCtx, currentScale);
+            });
+
+            // Convert canvas to PNG data
+            exportCanvas.toBlob(blob => {
+                if (!blob) {
+                    throw new Error("Failed to generate PNG data");
+                }
+
+                const reader = new FileReader();
+                reader.onload = function () {
+                    // Generate filename with scale information
+                    const frameNumber = String(currentFrame + 1).padStart(3, "0");
+                    const tagSuffix = currentTag ? `_${currentTag.name}` : "";
+                    const scaleSuffix = currentScale > 1 ? `_${currentScale}x` : "";
+                    const filename = `frame_${frameNumber}${tagSuffix}${scaleSuffix}.png`;
+
+                    // Send PNG data to extension
+                    vscode.postMessage({
+                        type: "exportPng",
+                        data: {
+                            pngData: reader.result,
+                            filename: filename,
+                        },
+                    });
+                };
+                reader.readAsDataURL(blob);
+            }, "image/png");
+        } catch (error) {
+            console.error("Export error:", error);
+            vscode.postMessage({
+                type: "showError",
+                message: `Export failed: ${error.message}`,
+            });
+        }
+    }
+
+    function renderCelToCanvas(cel, ctx, scale) {
+        if (!cel.width || !cel.height || !cel.processedImageData) return;
+
+        const imageData = cel.processedImageData;
+
+        // Create ImageData object
+        const canvasImageData = ctx.createImageData(cel.width, cel.height);
+
+        // Convert pixel data based on color depth
+        convertPixelDataForExport(imageData, canvasImageData.data, asepriteData.header.colorDepth);
+
+        // Create a temporary canvas to draw the cel
+        const tempCanvas = document.createElement("canvas");
+        tempCanvas.width = cel.width;
+        tempCanvas.height = cel.height;
+        const tempCtx = tempCanvas.getContext("2d");
+        tempCtx.imageSmoothingEnabled = false;
+
+        // Put the image data on the temporary canvas
+        tempCtx.putImageData(canvasImageData, 0, 0);
+
+        // Draw the scaled cel to the target canvas
+        ctx.drawImage(
+            tempCanvas,
+            0,
+            0,
+            cel.width,
+            cel.height,
+            cel.x * scale,
+            cel.y * scale,
+            cel.width * scale,
+            cel.height * scale
+        );
+    }
+
+    function convertPixelDataForExport(sourceData, targetData, colorDepth) {
+        const palette = asepriteData.globalPalette;
+
+        switch (colorDepth) {
+            case 32: // RGBA
+                for (let i = 0; i < sourceData.length; i++) {
+                    targetData[i] = sourceData[i];
+                }
+                break;
+
+            case 16: // Grayscale
+                for (let i = 0; i < sourceData.length; i += 2) {
+                    const pixelIndex = i / 2;
+                    const value = sourceData[i];
+                    const alpha = sourceData[i + 1];
+
+                    targetData[pixelIndex * 4] = value;
+                    targetData[pixelIndex * 4 + 1] = value;
+                    targetData[pixelIndex * 4 + 2] = value;
+                    targetData[pixelIndex * 4 + 3] = alpha;
+                }
+                break;
+
+            case 8: // Indexed
+                if (!palette) {
+                    console.error("No palette found for indexed color sprite");
+                    return;
+                }
+
+                for (let i = 0; i < sourceData.length; i++) {
+                    const colorIndex = sourceData[i];
+                    const paletteEntry = palette.entries[colorIndex - palette.firstColorIndex];
+
+                    if (paletteEntry) {
+                        targetData[i * 4] = paletteEntry.red;
+                        targetData[i * 4 + 1] = paletteEntry.green;
+                        targetData[i * 4 + 2] = paletteEntry.blue;
+                        targetData[i * 4 + 3] = paletteEntry.alpha;
+                    } else {
+                        targetData[i * 4] = 0;
+                        targetData[i * 4 + 1] = 0;
+                        targetData[i * 4 + 2] = 0;
+                        targetData[i * 4 + 3] = 0;
+                    }
+                }
+                break;
+
+            default:
+                console.error(`Unsupported color depth: ${colorDepth}`);
         }
     }
 
