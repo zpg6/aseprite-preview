@@ -18,9 +18,13 @@ Visual Studio Code / Cursor extension for quick previews of [Aseprite](https://g
 - 🎭 Multiple background options
 - 📸 Export current frame as PNG
 
+## Installation
+
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=grimaldi-tech.aseprite-preview) or search for "Aseprite Preview" in the Extensions view.
+
 ## Usage
 
-Just open an `.aseprite` or `.ase` file in VS Code. Use the toolbar to play animations, zoom, and adjust settings.
+Just click on an `.aseprite` or `.ase` file in VS Code. Use the toolbar to play animations, zoom, and adjust settings.
 
 ## Development
 
@@ -30,7 +34,7 @@ npm run compile
 # Press F5 to test
 ```
 
-Built from scratch with zero external dependencies using the official Aseprite file format specification.
+Built from scratch with zero external dependencies using the [official Aseprite file format specification](https://github.com/aseprite/aseprite/blob/main/docs/ase-file-specs.md).
 
 ## License
 

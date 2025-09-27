@@ -67,7 +67,9 @@
         "vscode:prepublish": "npm run compile",
         "compile": "tsc -p ./",
         "watch": "tsc -watch -p ./",
-        "format": "prettier --write ."
+        "format": "prettier --write .",
+        "package": "npx @vscode/vsce package",
+        "publish": "npx @vscode/vsce publish"
     },
     "devDependencies": {
         "@types/vscode": "^1.74.0",
