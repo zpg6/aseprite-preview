@@ -7,11 +7,25 @@ vsc-extension-quickstart.md
 **/tsconfig.json
 **/.eslintrc.json
 **/*.map
+.nyc_output
+coverage
 **/*.ts
-.github/**
-gfx/**
-.prettierignore
-.prettierrc
-pnpm-lock.yaml
-node_modules/**
+!out/**/*.js
+!out/**/*.d.ts
 
+# Workspace packages - these are compiled into out/
+packages/**
+pnpm-workspace.yaml
+pnpm-lock.yaml
+
+# Test files
+**/*.test.*
+**/tests/**
+
+# Development files
+*.vsix
+.prettierrc*
+bunfig.toml
+
+# Node modules
+node_modules/**
