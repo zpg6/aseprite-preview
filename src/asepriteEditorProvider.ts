@@ -128,7 +128,7 @@ export class AsepriteEditorProvider implements vscode.CustomReadonlyEditorProvid
             </span>
             <button id="exportPng" class="control-btn export-btn" title="Export as PNG">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                <path d="M5,20H19V18H5M19,9H15V3H9V9H5L12,16L19,9Z"/>
               </svg>
             </button>
           </div>

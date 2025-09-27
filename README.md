@@ -12,6 +12,7 @@ Visual Studio Code / Cursor extension for quick previews of [Aseprite](https://g
 - 📊 Show sprite info (size, frames, layers)
 - 🎯 Toggle between smooth and pixel-perfect rendering
 - 🎭 Multiple background options
+- 📸 Export current frame as PNG
 
 ## Usage
 
