@@ -1,7 +1,6 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import { AsepriteParser, AsepriteFile } from "@aseprite-preview/parser";
-import { AsepriteRenderer, RenderOptions } from "@aseprite-preview/renderer";
 
 /**
  * VSCode custom editor provider for Aseprite files

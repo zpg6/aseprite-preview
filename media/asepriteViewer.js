@@ -188,11 +188,8 @@
         const options = {
             scale: parseInt(scaleSelect.value),
             showGrid: showGridCheckbox.checked,
-            showBackground: true,
             backgroundColor: getBackgroundColor(),
             currentFrame: currentFrame,
-            playAnimation: isPlaying,
-            selectedTag: currentTag?.name,
             pixelPerfect: pixelPerfectCheckbox.checked,
         };
 
@@ -460,95 +457,129 @@
         }
     }
 
-    // Simple Aseprite renderer implementation for the webview
+    // Enhanced AsepriteRenderer using logic from packages/renderer
     class AsepriteRenderer {
         constructor(canvas, asepriteFile) {
             this.canvas = canvas;
             this.ctx = canvas.getContext("2d");
             this.asepriteFile = asepriteFile;
-            this.ctx.imageSmoothingEnabled = false; // Default to pixel perfect since pixel perfect is on by default
+            this.ctx.imageSmoothingEnabled = false;
         }
 
         render(options) {
-            const { scale, showGrid, currentFrame, pixelPerfect } = options;
+            const { scale, showGrid, currentFrame, pixelPerfect, backgroundColor = "transparent" } = options;
             const header = this.asepriteFile.header;
 
-            // For smooth rendering (when pixel perfect is OFF), render at higher resolution
-            const renderScale = pixelPerfect ? scale : scale * 4;
-            const displayScale = scale;
-
             // Set canvas size
-            this.canvas.width = header.width * renderScale;
-            this.canvas.height = header.height * renderScale;
-
-            // Set display size if different from render size
-            if (!pixelPerfect) {
-                this.canvas.style.width = header.width * displayScale + "px";
-                this.canvas.style.height = header.height * displayScale + "px";
-            } else {
-                this.canvas.style.width = "";
-                this.canvas.style.height = "";
-            }
+            const scaledWidth = header.width * scale;
+            const scaledHeight = header.height * scale;
+            this.canvas.width = scaledWidth;
+            this.canvas.height = scaledHeight;
 
             // Update context settings
             this.ctx.imageSmoothingEnabled = !pixelPerfect;
 
-            // Clear canvas
-            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+            // Clear canvas with background
+            if (backgroundColor !== "transparent") {
+                this.ctx.fillStyle = backgroundColor;
+                this.ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+            } else {
+                this.ctx.clearRect(0, 0, scaledWidth, scaledHeight);
+            }
 
             // Get the frame to render
             const frame = this.asepriteFile.frames[currentFrame];
             if (!frame) return;
 
-            // Render cels
-            this.renderFrame(frame, renderScale);
+            // Collect and sort layers properly (using packages/renderer logic)
+            const layerRenderInfos = this.collectLayerRenderInfo(frame);
+            layerRenderInfos.sort((a, b) => {
+                const orderA = a.layerIndex + a.zIndex;
+                const orderB = b.layerIndex + b.zIndex;
+                return orderA !== orderB ? orderA - orderB : a.zIndex - b.zIndex;
+            });
+
+            // Render each layer with proper compositing
+            for (const renderInfo of layerRenderInfos) {
+                if (renderInfo.visible) {
+                    this.renderLayer(frame, renderInfo, scale);
+                }
+            }
 
             // Draw grid if enabled
             if (showGrid && header.gridWidth > 0 && header.gridHeight > 0) {
-                this.drawGrid(renderScale);
+                this.drawGrid(scale);
             }
         }
 
-        renderFrame(frame, scale) {
-            // Render all cels in the frame
-            frame.cels.forEach(cel => {
-                this.renderCel(cel, scale);
+        collectLayerRenderInfo(frame) {
+            const renderInfos = [];
+            const layerMap = new Map();
+
+            frame.layers.forEach((layer, index) => {
+                layerMap.set(index, layer);
             });
+
+            for (const cel of frame.cels) {
+                const layer = layerMap.get(cel.layerIndex);
+                if (!layer || layer.type === 1) continue; // Skip group layers
+
+                const visible = (layer.flags & 1) !== 0;
+                const opacity = (cel.opacity / 255) * (layer.opacity / 255);
+
+                renderInfos.push({
+                    layer,
+                    layerIndex: cel.layerIndex,
+                    visible,
+                    opacity,
+                    zIndex: cel.zIndex || 0,
+                });
+            }
+
+            return renderInfos;
         }
 
-        renderCel(cel, scale) {
+        renderLayer(frame, renderInfo, scale) {
+            const cel = frame.cels.find(c => c.layerIndex === renderInfo.layerIndex);
+            if (!cel) return;
+
+            // Create temporary canvas for layer rendering
+            const layerCanvas = document.createElement("canvas");
+            const layerCtx = layerCanvas.getContext("2d");
+            if (!layerCtx) return;
+
+            layerCanvas.width = this.asepriteFile.header.width;
+            layerCanvas.height = this.asepriteFile.header.height;
+            layerCtx.imageSmoothingEnabled = false;
+
+            this.renderCel(cel, layerCtx);
+
+            // Apply layer opacity and blend mode
+            this.ctx.save();
+            this.ctx.globalAlpha = renderInfo.opacity;
+            this.ctx.globalCompositeOperation = this.getBlendModeString(renderInfo.layer.blendMode);
+
+            this.ctx.drawImage(
+                layerCanvas,
+                0,
+                0,
+                layerCanvas.width,
+                layerCanvas.height,
+                0,
+                0,
+                layerCanvas.width * scale,
+                layerCanvas.height * scale
+            );
+
+            this.ctx.restore();
+        }
+
+        renderCel(cel, ctx) {
             if (!cel.width || !cel.height || !cel.processedImageData) return;
 
-            const imageData = cel.processedImageData;
-
-            // Create ImageData object
-            const canvasImageData = this.ctx.createImageData(cel.width, cel.height);
-
-            // Convert pixel data based on color depth
-            this.convertPixelData(imageData, canvasImageData.data, this.asepriteFile.header.colorDepth);
-
-            // Create a temporary canvas to draw the cel
-            const tempCanvas = document.createElement("canvas");
-            tempCanvas.width = cel.width;
-            tempCanvas.height = cel.height;
-            const tempCtx = tempCanvas.getContext("2d");
-            tempCtx.imageSmoothingEnabled = false;
-
-            // Put the image data on the temporary canvas
-            tempCtx.putImageData(canvasImageData, 0, 0);
-
-            // Draw the scaled cel to the main canvas
-            this.ctx.drawImage(
-                tempCanvas,
-                0,
-                0,
-                cel.width,
-                cel.height,
-                cel.x * scale,
-                cel.y * scale,
-                cel.width * scale,
-                cel.height * scale
-            );
+            const canvasImageData = ctx.createImageData(cel.width, cel.height);
+            this.convertPixelData(cel.processedImageData, canvasImageData.data, this.asepriteFile.header.colorDepth);
+            ctx.putImageData(canvasImageData, cel.x, cel.y);
         }
 
         convertPixelData(sourceData, targetData, colorDepth) {
@@ -603,9 +634,41 @@
             }
         }
 
+        getBlendModeString(blendMode) {
+            switch (blendMode) {
+                case 0:
+                    return "source-over"; // NORMAL
+                case 1:
+                    return "multiply"; // MULTIPLY
+                case 2:
+                    return "screen"; // SCREEN
+                case 3:
+                    return "overlay"; // OVERLAY
+                case 4:
+                    return "darken"; // DARKEN
+                case 5:
+                    return "lighten"; // LIGHTEN
+                case 6:
+                    return "color-dodge"; // COLOR_DODGE
+                case 7:
+                    return "color-burn"; // COLOR_BURN
+                case 8:
+                    return "hard-light"; // HARD_LIGHT
+                case 9:
+                    return "soft-light"; // SOFT_LIGHT
+                case 10:
+                    return "difference"; // DIFFERENCE
+                case 11:
+                    return "exclusion"; // EXCLUSION
+                default:
+                    return "source-over";
+            }
+        }
+
         drawGrid(scale) {
             const { gridX, gridY, gridWidth, gridHeight, width, height } = this.asepriteFile.header;
 
+            this.ctx.save();
             this.ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
             this.ctx.lineWidth = 1;
 
@@ -624,6 +687,8 @@
                 this.ctx.lineTo(width * scale, y * scale);
                 this.ctx.stroke();
             }
+
+            this.ctx.restore();
         }
     }
 })();

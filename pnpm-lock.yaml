@@ -11,9 +11,6 @@ importers:
       '@aseprite-preview/parser':
         specifier: workspace:*
         version: link:packages/aseprite-parser
-      '@aseprite-preview/renderer':
-        specifier: workspace:*
-        version: link:packages/aseprite-renderer
       '@types/node':
         specifier: 16.x
         version: 16.18.126
@@ -31,22 +28,6 @@ importers:
         version: 2.0.0(typescript@5.9.2)
 
   packages/aseprite-parser:
-    devDependencies:
-      '@types/node':
-        specifier: ^16.0.0
-        version: 16.18.126
-      bun-types:
-        specifier: latest
-        version: 1.2.22(@types/react@19.1.14)
-      typescript:
-        specifier: ^4.9.4
-        version: 4.9.5
-
-  packages/aseprite-renderer:
-    dependencies:
-      '@aseprite-preview/parser':
-        specifier: workspace:*
-        version: link:../aseprite-parser
     devDependencies:
       '@types/node':
         specifier: ^16.0.0
