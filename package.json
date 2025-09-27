@@ -2,7 +2,7 @@
     "name": "aseprite-preview",
     "displayName": "Aseprite Preview",
     "description": "Preview Aseprite files (.aseprite, .ase) directly in VS Code with animation support",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "publisher": "grimaldi-tech",
     "repository": {
         "type": "git",
