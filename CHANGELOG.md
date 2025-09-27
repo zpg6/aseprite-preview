@@ -10,6 +10,12 @@
 
 ### Removed
 
+## [0.0.5] - 2025-09-27
+
+### Fixed
+
+- Animation playback must access layers from first frame
+
 ## [0.0.4] - 2025-09-27
 
 ### Changed

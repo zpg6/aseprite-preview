@@ -163,6 +163,15 @@ export class AsepriteParser {
             frames.push(this.parseFrame(reader, header));
         }
 
+        // According to ASE spec, layers are defined in first frame and apply globally
+        // Ensure all frames have access to the layer definitions from frame 0
+        const globalLayers = frames[0]?.layers || [];
+        for (let i = 1; i < frames.length; i++) {
+            if (frames[i].layers.length === 0) {
+                frames[i].layers = globalLayers;
+            }
+        }
+
         return {
             header,
             frames,

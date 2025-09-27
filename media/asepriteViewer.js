@@ -516,7 +516,10 @@
             const renderInfos = [];
             const layerMap = new Map();
 
-            frame.layers.forEach((layer, index) => {
+            // Use layers from first frame as they define the global layer layout
+            // According to ASE spec: "In the first frame should be a set of layer chunks to determine the entire layers layout"
+            const globalLayers = this.asepriteFile.frames[0].layers;
+            globalLayers.forEach((layer, index) => {
                 layerMap.set(index, layer);
             });
 
