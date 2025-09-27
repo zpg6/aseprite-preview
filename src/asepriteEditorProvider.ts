@@ -136,8 +136,8 @@ export class AsepriteEditorProvider implements vscode.CustomReadonlyEditorProvid
               Scale: 
               <select id="scaleSelect">
                 <option value="1">1x</option>
-                <option value="2" selected>2x</option>
-                <option value="4">4x</option>
+                <option value="2">2x</option>
+                <option value="4" selected>4x</option>
                 <option value="8">8x</option>
                 <option value="16">16x</option>
               </select>
@@ -146,7 +146,7 @@ export class AsepriteEditorProvider implements vscode.CustomReadonlyEditorProvid
               <input type="checkbox" id="showGrid"> Show Grid
             </label>
             <label>
-              <input type="checkbox" id="pixelPerfect"> Pixel Perfect
+              <input type="checkbox" id="pixelPerfect" checked> Pixel Perfect
             </label>
             <label>
               Background: 

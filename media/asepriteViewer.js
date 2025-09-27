@@ -466,7 +466,7 @@
             this.canvas = canvas;
             this.ctx = canvas.getContext("2d");
             this.asepriteFile = asepriteFile;
-            this.ctx.imageSmoothingEnabled = true; // Default to smooth since pixel perfect is off by default
+            this.ctx.imageSmoothingEnabled = false; // Default to pixel perfect since pixel perfect is on by default
         }
 
         render(options) {

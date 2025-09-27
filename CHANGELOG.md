@@ -6,6 +6,9 @@
 
 ### Changed
 
+- Default to pixel rendering
+- Default to 4x scale
+
 ### Fixed
 
 ### Removed
