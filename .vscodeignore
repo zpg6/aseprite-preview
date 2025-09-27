@@ -17,14 +17,17 @@ coverage
 packages/**
 pnpm-workspace.yaml
 pnpm-lock.yaml
+.github/**
 
 # Test files
 **/*.test.*
 **/tests/**
+gfx/**
 
 # Development files
 *.vsix
 .prettierrc*
+.prettierignore
 bunfig.toml
 
 # Node modules
