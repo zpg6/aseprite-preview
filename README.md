@@ -1,5 +1,9 @@
 # Aseprite Preview
 
+[![VS Code Extension Version](https://img.shields.io/visual-studio-marketplace/v/grimaldi-tech.aseprite-preview)](https://marketplace.visualstudio.com/items?itemName=grimaldi-tech.aseprite-preview)
+[![VS Code Extension Downloads](https://img.shields.io/visual-studio-marketplace/d/grimaldi-tech.aseprite-preview)](https://marketplace.visualstudio.com/items?itemName=grimaldi-tech.aseprite-preview)
+[![License: MIT](https://img.shields.io/github/license/zpg6/aseprite-preview)](https://opensource.org/licenses/MIT)
+
 Visual Studio Code / Cursor extension for quick previews of [Aseprite](https://github.com/aseprite/aseprite) pixel art files (`.aseprite` and `.ase`). Only meant for a quick look at a sprite to save having to open it fully in Aseprite.
 
 ![Aseprite Preview](./docs/screenshot.png)
@@ -17,10 +21,6 @@ Visual Studio Code / Cursor extension for quick previews of [Aseprite](https://g
 ## Usage
 
 Just open an `.aseprite` or `.ase` file in VS Code. Use the toolbar to play animations, zoom, and adjust settings.
-
-## Requirements
-
-- Visual Studio Code 1.74.0 or higher
 
 ## Development
 
