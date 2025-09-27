@@ -3,10 +3,14 @@
     "displayName": "Aseprite Preview",
     "description": "Preview Aseprite files (.aseprite, .ase) directly in VS Code with animation support",
     "version": "0.0.1",
-    "publisher": "aseprite-preview",
+    "publisher": "grimaldi-tech",
     "repository": {
         "type": "git",
-        "url": "https://github.com/your-username/aseprite-preview"
+        "url": "https://github.com/zpg6/aseprite-preview"
+    },
+    "homepage": "https://github.com/zpg6/aseprite-preview#readme",
+    "bugs": {
+        "url": "https://github.com/zpg6/aseprite-preview/issues"
     },
     "engines": {
         "vscode": "^1.74.0"
@@ -14,6 +18,11 @@
     "categories": [
         "Other"
     ],
+    "icon": "docs/icon.png",
+    "galleryBanner": {
+        "color": "#1e1e1e",
+        "theme": "dark"
+    },
     "keywords": [
         "aseprite",
         "pixel art",
@@ -45,6 +54,11 @@
             {
                 "command": "aseprite-preview.toggleAnimation",
                 "title": "Toggle Animation",
+                "category": "Aseprite Preview"
+            },
+            {
+                "command": "aseprite-preview.exportAsPng",
+                "title": "Export as PNG",
                 "category": "Aseprite Preview"
             }
         ]
