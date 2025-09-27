@@ -6,12 +6,16 @@
 
 ### Changed
 
-- Default to pixel rendering
-- Default to 4x scale
-
 ### Fixed
 
 ### Removed
+
+## [0.0.4] - 2025-09-27
+
+### Changed
+
+- Default to pixel rendering
+- Default to 4x scale
 
 ## [0.0.3] - 2025-09-27
 
