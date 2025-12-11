@@ -175,6 +175,25 @@ export class AsepriteEditorProvider implements vscode.CustomReadonlyEditorProvid
             <h3>Animation Tags</h3>
             <div id="tagsList"></div>
           </div>
+          <div class="slices-panel" id="slicesPanel" style="display: none;">
+            <div class="slices-header">
+              <h3>Slices</h3>
+              <label class="slice-overlay-toggle">
+                <input type="checkbox" id="showSlicesOverlay" checked> Show Overlay
+              </label>
+            </div>
+            <div class="slices-body">
+              <div class="slices-list" id="slicesList"></div>
+              <div id="sliceDetails" class="slice-details" style="display: none;">
+                <div class="info-grid">
+                  <span>Frame:</span> <span id="sliceFrame">-</span>
+                  <span>Bounds:</span> <span id="sliceBounds">-</span>
+                  <span>Center:</span> <span id="sliceCenter">-</span>
+                  <span>Pivot:</span> <span id="slicePivot">-</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <script nonce="${nonce}" src="${scriptUri}"></script>
