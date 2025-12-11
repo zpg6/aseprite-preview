@@ -7,6 +7,9 @@
     let currentFrame = 0;
     let currentTag = null;
     let animationId = null;
+    let slices = [];
+    let selectedSlice = null;
+    let currentScale = parseInt(document.getElementById("scaleSelect").value, 10) || 4;
 
     // DOM elements
     const canvas = document.getElementById("asepriteCanvas");
@@ -26,6 +29,14 @@
     const totalDurationSpan = document.getElementById("totalDuration");
     const tagsPanel = document.getElementById("tagsPanel");
     const tagsList = document.getElementById("tagsList");
+    const slicesPanel = document.getElementById("slicesPanel");
+    const slicesList = document.getElementById("slicesList");
+    const sliceDetails = document.getElementById("sliceDetails");
+    const sliceFrameSpan = document.getElementById("sliceFrame");
+    const sliceBoundsSpan = document.getElementById("sliceBounds");
+    const sliceCenterSpan = document.getElementById("sliceCenter");
+    const slicePivotSpan = document.getElementById("slicePivot");
+    const showSlicesOverlayCheckbox = document.getElementById("showSlicesOverlay");
 
     // Initialize
     document.addEventListener("DOMContentLoaded", () => {
@@ -41,8 +52,11 @@
         showGridCheckbox.addEventListener("change", updateRender);
         pixelPerfectCheckbox.addEventListener("change", updatePixelPerfect);
         backgroundSelect.addEventListener("change", updateBackground);
+        showSlicesOverlayCheckbox.addEventListener("change", updateRender);
 
         canvas.addEventListener("click", e => {
+            if (handleSliceClick(e)) return;
+
             if (asepriteData && asepriteData.frames.length > 1) {
                 // Click to advance frame manually when paused
                 if (!isPlaying) {
@@ -65,6 +79,8 @@
 
     function handleAsepriteData(data) {
         asepriteData = data;
+        slices = [];
+        selectedSlice = null;
 
         // Convert arrays back to Uint8Arrays
         if (asepriteData.frames) {
@@ -108,6 +124,7 @@
 
         // Setup tags
         setupTags();
+        setupSlices();
 
         // Initialize renderer
         renderer = new AsepriteRenderer(canvas, asepriteData);
@@ -161,7 +178,7 @@
         `;
 
                 tagElement.addEventListener("click", () => {
-                    selectTag(tag);
+                    selectTag(tag, tagElement);
                 });
 
                 tagsList.appendChild(tagElement);
@@ -169,7 +186,7 @@
         }
     }
 
-    function selectTag(tag) {
+    function selectTag(tag, element) {
         currentTag = tag;
         currentFrame = tag.fromFrame;
 
@@ -177,9 +194,123 @@
         document.querySelectorAll(".tag-item").forEach(item => {
             item.classList.remove("active");
         });
-        event.currentTarget.classList.add("active");
+        if (element) {
+            element.classList.add("active");
+        }
 
         updateRender();
+    }
+
+    function setupSlices() {
+        slices = collectSlices();
+
+        if (!slices.length) {
+            slicesPanel.style.display = "none";
+            return;
+        }
+
+        slicesPanel.style.display = "block";
+        slicesList.innerHTML = "";
+
+        slices.forEach((slice, index) => {
+            const keyCount = slice.keys?.length ?? 0;
+            const sliceElement = document.createElement("div");
+            sliceElement.className = "slice-item";
+            sliceElement.dataset.sliceName = slice.name;
+            sliceElement.innerHTML = `
+        <div class="slice-name">${slice.name}</div>
+        <div class="slice-meta">${keyCount} key${keyCount === 1 ? "" : "s"}</div>
+      `;
+
+            sliceElement.addEventListener("click", () => selectSlice(slice.name, sliceElement));
+
+            if (index === 0) {
+                sliceElement.classList.add("active");
+                selectedSlice = slice.name;
+            }
+
+            slicesList.appendChild(sliceElement);
+        });
+
+        if (!selectedSlice && slices[0]) {
+            selectedSlice = slices[0].name;
+        }
+
+        updateSliceDetails();
+    }
+
+    function collectSlices() {
+        const sliceMap = new Map();
+
+        asepriteData.frames.forEach(frame => {
+            frame.slices?.forEach(slice => {
+                const existing = sliceMap.get(slice.name);
+                if (existing) {
+                    existing.flags |= slice.flags;
+                    existing.keys = existing.keys.concat(slice.keys || []);
+                } else {
+                    sliceMap.set(slice.name, {
+                        ...slice,
+                        keys: (slice.keys || []).slice(),
+                    });
+                }
+            });
+        });
+
+        return Array.from(sliceMap.values()).map(slice => {
+            slice.keys.sort((a, b) => a.frameNumber - b.frameNumber);
+            return slice;
+        });
+    }
+
+    function selectSlice(sliceName, element) {
+        selectedSlice = sliceName;
+        document.querySelectorAll(".slice-item").forEach(item => item.classList.remove("active"));
+        const targetElement =
+            element ||
+            Array.from(document.querySelectorAll(".slice-item")).find(item => item.dataset.sliceName === sliceName);
+        if (targetElement) {
+            targetElement.classList.add("active");
+        }
+        updateSliceDetails();
+        updateRender();
+    }
+
+    function getSliceKeyForFrame(slice, frameIndex) {
+        if (!slice?.keys?.length) return null;
+        let key = slice.keys[0];
+        for (const candidate of slice.keys) {
+            if (candidate.frameNumber <= frameIndex && candidate.frameNumber >= key.frameNumber) {
+                key = candidate;
+            }
+        }
+        return key;
+    }
+
+    function updateSliceDetails() {
+        const slice = slices.find(s => s.name === selectedSlice);
+        if (!slice) {
+            sliceDetails.style.display = "none";
+            return;
+        }
+
+        const key = getSliceKeyForFrame(slice, currentFrame);
+        if (!key) {
+            sliceDetails.style.display = "none";
+            return;
+        }
+
+        sliceDetails.style.display = "block";
+        sliceFrameSpan.textContent = `${key.frameNumber + 1} of ${asepriteData.header.frames}`;
+        sliceBoundsSpan.textContent = `${key.x}, ${key.y} (${key.width}×${key.height})`;
+
+        const hasCenter = key.centerWidth !== undefined && key.centerHeight !== undefined;
+        sliceCenterSpan.textContent = hasCenter
+            ? `${key.x + (key.centerX ?? 0)}, ${key.y + (key.centerY ?? 0)} (${key.centerWidth}×${key.centerHeight})`
+            : "—";
+
+        const hasPivot = key.pivotX !== undefined && key.pivotY !== undefined;
+        slicePivotSpan.textContent = hasPivot ? `${key.x + key.pivotX}, ${key.y + key.pivotY}` : "—";
     }
 
     function updateRender() {
@@ -191,10 +322,44 @@
             backgroundColor: getBackgroundColor(),
             currentFrame: currentFrame,
             pixelPerfect: pixelPerfectCheckbox.checked,
+            sliceOverlay: {
+                show: showSlicesOverlayCheckbox.checked,
+                slices,
+                selectedSlice,
+                currentFrame,
+            },
         };
 
+        currentScale = options.scale;
         renderer.render(options);
         currentFrameSpan.textContent = (currentFrame + 1).toString();
+        updateSliceDetails();
+    }
+
+    function handleSliceClick(event) {
+        if (!showSlicesOverlayCheckbox.checked || !slices.length) return false;
+        const rect = canvas.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / currentScale;
+        const y = (event.clientY - rect.top) / currentScale;
+
+        const hit = findSliceAtPoint(x, y, currentFrame);
+        if (hit) {
+            selectSlice(hit.name);
+            return true;
+        }
+        return false;
+    }
+
+    function findSliceAtPoint(x, y, frameIndex) {
+        for (const slice of slices) {
+            const key = getSliceKeyForFrame(slice, frameIndex);
+            if (!key || !key.width || !key.height) continue;
+
+            if (x >= key.x && x < key.x + key.width && y >= key.y && y < key.y + key.height) {
+                return slice;
+            }
+        }
+        return null;
     }
 
     function updatePixelPerfect() {
@@ -467,7 +632,14 @@
         }
 
         render(options) {
-            const { scale, showGrid, currentFrame, pixelPerfect, backgroundColor = "transparent" } = options;
+            const {
+                scale,
+                showGrid,
+                currentFrame,
+                pixelPerfect,
+                backgroundColor = "transparent",
+                sliceOverlay,
+            } = options;
             const header = this.asepriteFile.header;
 
             // Set canvas size
@@ -510,6 +682,81 @@
             if (showGrid && header.gridWidth > 0 && header.gridHeight > 0) {
                 this.drawGrid(scale);
             }
+
+            if (sliceOverlay?.show && sliceOverlay.slices?.length) {
+                this.drawSlices(sliceOverlay, scale);
+            }
+        }
+
+        drawSlices(sliceOverlay, scale) {
+            const { slices, selectedSlice, currentFrame } = sliceOverlay;
+            if (!slices?.length) return;
+
+            this.ctx.save();
+
+            for (const slice of slices) {
+                const key = getSliceKeyForFrame(slice, currentFrame);
+                if (!key || !key.width || !key.height) continue;
+
+                const isSelected = slice.name === selectedSlice;
+                this.ctx.lineWidth = 1;
+
+                const x = key.x * scale;
+                const y = key.y * scale;
+                const width = key.width * scale;
+                const height = key.height * scale;
+
+                // Outer stroke
+                this.ctx.strokeStyle = isSelected ? "rgba(255, 206, 104, 0.9)" : "rgba(0, 153, 255, 0.7)";
+                this.ctx.strokeRect(x + 1.5, y + 1.5, Math.max(0, width - 3), Math.max(0, height - 3));
+
+                // Inner stroke for extra contrast
+                this.ctx.strokeStyle = isSelected ? "rgba(255, 255, 255, 0.65)" : "rgba(0, 0, 0, 0.35)";
+                this.ctx.strokeRect(x + 2.5, y + 2.5, Math.max(0, width - 5), Math.max(0, height - 5));
+
+                if (isSelected) {
+                    this.drawSliceCenter(key, scale);
+                    this.drawSlicePivot(key, scale);
+                }
+            }
+
+            this.ctx.restore();
+        }
+
+        drawSliceCenter(key, scale) {
+            if (key.centerWidth === undefined || key.centerHeight === undefined) return;
+
+            const centerX = (key.x + (key.centerX ?? 0)) * scale + 0.5;
+            const centerY = (key.y + (key.centerY ?? 0)) * scale + 0.5;
+            const centerWidth = key.centerWidth * scale;
+            const centerHeight = key.centerHeight * scale;
+
+            this.ctx.save();
+            this.ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+            this.ctx.lineWidth = 1;
+            this.ctx.strokeRect(centerX, centerY, centerWidth, centerHeight);
+            this.ctx.restore();
+        }
+
+        drawSlicePivot(key, scale) {
+            if (key.pivotX === undefined || key.pivotY === undefined) return;
+
+            const pivotX = (key.x + key.pivotX) * scale + 0.5;
+            const pivotY = (key.y + key.pivotY) * scale + 0.5;
+
+            this.ctx.save();
+            this.ctx.strokeStyle = "rgba(255, 206, 104, 0.9)";
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(pivotX - 4, pivotY);
+            this.ctx.lineTo(pivotX + 4, pivotY);
+            this.ctx.moveTo(pivotX, pivotY - 4);
+            this.ctx.lineTo(pivotX, pivotY + 4);
+            this.ctx.stroke();
+
+            this.ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+            this.ctx.fillRect(pivotX - 1, pivotY - 1, 2, 2);
+            this.ctx.restore();
         }
 
         collectLayerRenderInfo(frame) {

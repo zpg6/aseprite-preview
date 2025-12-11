@@ -5,9 +5,9 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
-        "build": "tsc",
+        "build": "node ../../node_modules/typescript/bin/tsc",
         "test": "bun test",
-        "dev": "tsc --watch"
+        "dev": "node ../../node_modules/typescript/bin/tsc --watch"
     },
     "keywords": [
         "aseprite",
@@ -20,7 +20,7 @@
     "devDependencies": {
         "@types/node": "^16.0.0",
         "bun-types": "latest",
-        "typescript": "^4.9.4"
+        "typescript": "^5.1.6"
     },
     "dependencies": {},
     "files": [
