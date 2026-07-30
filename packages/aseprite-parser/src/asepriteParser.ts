@@ -1,25 +1,25 @@
 import * as zlib from "zlib";
 import {
     AsepriteFile,
-    AsepriteHeader,
     AsepriteFrame,
-    FrameHeader,
-    ChunkHeader,
-    LayerChunk,
+    AsepriteHeader,
     CelChunk,
-    PaletteChunk,
-    PaletteEntry,
-    TagChunk,
-    UserDataChunk,
-    SliceChunk,
-    SliceKey,
-    TilesetChunk,
-    ColorProfileChunk,
-    ExternalFilesChunk,
-    ExternalFileEntry,
+    CelType,
+    ChunkHeader,
     ChunkType,
     ColorDepth,
-    CelType,
+    ColorProfileChunk,
+    ExternalFileEntry,
+    ExternalFilesChunk,
+    FrameHeader,
+    LayerChunk,
+    PaletteChunk,
+    PaletteEntry,
+    SliceChunk,
+    SliceKey,
+    TagChunk,
+    TilesetChunk,
+    UserDataChunk,
 } from "./asepriteTypes";
 
 /**
@@ -245,6 +245,7 @@ export class AsepriteParser {
         const layers: LayerChunk[] = [];
         const cels: CelChunk[] = [];
         let palette: PaletteChunk | undefined;
+        let oldPalette: PaletteChunk | undefined;
         const tags: TagChunk[] = [];
         const userData: UserDataChunk[] = [];
         const slices: SliceChunk[] = [];
@@ -291,8 +292,12 @@ export class AsepriteParser {
                         break;
                     case ChunkType.OLD_PALETTE_04:
                     case ChunkType.OLD_PALETTE_11:
-                        // Skip old palette chunks as per spec (ignore if new palette 0x2019 exists)
-                        reader.setOffset(chunkEndOffset);
+                        // Fallback only: Aseprite >= 1.3.5 writes just this chunk when the
+                        // palette has no alpha and <= 256 colors, so it can be the only one.
+                        oldPalette = this.parseOldPaletteChunk(
+                            reader,
+                            chunkHeader.type === ChunkType.OLD_PALETTE_11
+                        );
                         break;
                     default:
                         // Skip unknown chunks to maintain forward compatibility
@@ -312,7 +317,7 @@ export class AsepriteParser {
             header: frameHeader,
             layers,
             cels,
-            palette,
+            palette: palette ?? oldPalette,
             tags: tags.length > 0 ? tags : undefined,
             userData: userData.length > 0 ? userData : undefined,
             slices: slices.length > 0 ? slices : undefined,
@@ -498,6 +503,47 @@ export class AsepriteParser {
             newPaletteSize,
             firstColorIndex,
             lastColorIndex,
+            entries,
+        };
+    }
+
+    /**
+     * Parse old palette chunks (0x0004 / 0x0011) into the modern PaletteChunk shape.
+     * 0x0011 stores 6-bit components (0-63); 0x0004 stores 8-bit (0-255).
+     */
+    private static parseOldPaletteChunk(reader: BinaryReader, sixBit: boolean): PaletteChunk {
+        const packetCount = reader.readWord();
+        const entries: PaletteEntry[] = [];
+        let index = 0;
+
+        for (let p = 0; p < packetCount; p++) {
+            index += reader.readByte();
+            const colorCount = reader.readByte() || 256;
+
+            while (entries.length < index) {
+                entries.push({ flags: 0, red: 0, green: 0, blue: 0, alpha: 255 });
+            }
+
+            for (let c = 0; c < colorCount; c++) {
+                let red = reader.readByte();
+                let green = reader.readByte();
+                let blue = reader.readByte();
+
+                if (sixBit) {
+                    red = (red << 2) | (red >> 4);
+                    green = (green << 2) | (green >> 4);
+                    blue = (blue << 2) | (blue >> 4);
+                }
+
+                entries[index] = { flags: 0, red, green, blue, alpha: 255 };
+                index++;
+            }
+        }
+
+        return {
+            newPaletteSize: entries.length,
+            firstColorIndex: 0,
+            lastColorIndex: Math.max(0, entries.length - 1),
             entries,
         };
     }

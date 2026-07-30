@@ -332,8 +332,11 @@
             }
 
             // Render the current frame to export canvas at the selected scale
+            const globalLayers = asepriteData.frames[0].layers;
             frame.cels.forEach(cel => {
-                renderCelToCanvas(cel, exportCtx, currentScale);
+                const layer = globalLayers[cel.layerIndex];
+                const isBackground = !!layer && (layer.flags & 8) !== 0;
+                renderCelToCanvas(cel, exportCtx, currentScale, isBackground);
             });
 
             // Convert canvas to PNG data
@@ -370,7 +373,7 @@
         }
     }
 
-    function renderCelToCanvas(cel, ctx, scale) {
+    function renderCelToCanvas(cel, ctx, scale, isBackground) {
         if (!cel.width || !cel.height || !cel.processedImageData) return;
 
         const imageData = cel.processedImageData;
@@ -379,7 +382,7 @@
         const canvasImageData = ctx.createImageData(cel.width, cel.height);
 
         // Convert pixel data based on color depth
-        convertPixelDataForExport(imageData, canvasImageData.data, asepriteData.header.colorDepth);
+        convertPixelDataForExport(imageData, canvasImageData.data, asepriteData.header.colorDepth, isBackground);
 
         // Create a temporary canvas to draw the cel
         const tempCanvas = document.createElement("canvas");
@@ -405,7 +408,7 @@
         );
     }
 
-    function convertPixelDataForExport(sourceData, targetData, colorDepth) {
+    function convertPixelDataForExport(sourceData, targetData, colorDepth, isBackground) {
         const palette = asepriteData.globalPalette;
 
         switch (colorDepth) {
@@ -434,9 +437,15 @@
                     return;
                 }
 
+                // The transparent index only applies to non-background layers (ASE spec)
+                const transparentIndexExport = isBackground ? -1 : asepriteData.header.transparentIndex;
+
                 for (let i = 0; i < sourceData.length; i++) {
                     const colorIndex = sourceData[i];
-                    const paletteEntry = palette.entries[colorIndex - palette.firstColorIndex];
+                    const paletteEntry =
+                        colorIndex === transparentIndexExport
+                            ? undefined
+                            : palette.entries[colorIndex - palette.firstColorIndex];
 
                     if (paletteEntry) {
                         targetData[i * 4] = paletteEntry.red;
@@ -555,7 +564,7 @@
             layerCanvas.height = this.asepriteFile.header.height;
             layerCtx.imageSmoothingEnabled = false;
 
-            this.renderCel(cel, layerCtx);
+            this.renderCel(cel, layerCtx, (renderInfo.layer.flags & 8) !== 0);
 
             // Apply layer opacity and blend mode
             this.ctx.save();
@@ -577,15 +586,20 @@
             this.ctx.restore();
         }
 
-        renderCel(cel, ctx) {
+        renderCel(cel, ctx, isBackground) {
             if (!cel.width || !cel.height || !cel.processedImageData) return;
 
             const canvasImageData = ctx.createImageData(cel.width, cel.height);
-            this.convertPixelData(cel.processedImageData, canvasImageData.data, this.asepriteFile.header.colorDepth);
+            this.convertPixelData(
+                cel.processedImageData,
+                canvasImageData.data,
+                this.asepriteFile.header.colorDepth,
+                isBackground
+            );
             ctx.putImageData(canvasImageData, cel.x, cel.y);
         }
 
-        convertPixelData(sourceData, targetData, colorDepth) {
+        convertPixelData(sourceData, targetData, colorDepth, isBackground) {
             const palette = this.asepriteFile.globalPalette;
 
             switch (colorDepth) {
@@ -614,9 +628,15 @@
                         return;
                     }
 
+                    // The transparent index only applies to non-background layers (ASE spec)
+                    const transparentIndex = isBackground ? -1 : this.asepriteFile.header.transparentIndex;
+
                     for (let i = 0; i < sourceData.length; i++) {
                         const colorIndex = sourceData[i];
-                        const paletteEntry = palette.entries[colorIndex - palette.firstColorIndex];
+                        const paletteEntry =
+                            colorIndex === transparentIndex
+                                ? undefined
+                                : palette.entries[colorIndex - palette.firstColorIndex];
 
                         if (paletteEntry) {
                             targetData[i * 4] = paletteEntry.red;
