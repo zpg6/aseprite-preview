@@ -177,6 +177,10 @@ body {
     border-top: 1px solid var(--vscode-panel-border);
     padding: 16px;
     flex-shrink: 0;
+    /* A sprite with many tags must not push the canvas off the screen */
+    max-height: 35vh;
+    overflow-y: auto;
+    box-sizing: border-box;
     display: flex;
     gap: 32px;
 }

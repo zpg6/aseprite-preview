@@ -266,7 +266,7 @@ export class AsepriteParser {
                         layers.push(this.parseLayerChunk(reader, header));
                         break;
                     case ChunkType.CEL:
-                        cels.push(this.parseCelChunk(reader, header));
+                        cels.push(this.parseCelChunk(reader, header, chunkEndOffset));
                         break;
                     case ChunkType.PALETTE:
                         palette = this.parsePaletteChunk(reader);
@@ -401,7 +401,7 @@ export class AsepriteParser {
      * Determines where to place cel in specified layer/frame
      * Layer index follows spec NOTE.2 for layer ordering
      */
-    private static parseCelChunk(reader: BinaryReader, header: AsepriteHeader): CelChunk {
+    private static parseCelChunk(reader: BinaryReader, header: AsepriteHeader, chunkEndOffset: number): CelChunk {
         const layerIndex = reader.readWord();
         const x = reader.readShort();
         const y = reader.readShort();
@@ -436,7 +436,8 @@ export class AsepriteParser {
                 // ZLIB compressed image data (spec NOTE.3)
                 cel.width = reader.readWord();
                 cel.height = reader.readWord();
-                const compressedSize = reader.getRemainingBytes();
+                // The compressed data runs to the end of this chunk, not to the end of the file
+                const compressedSize = chunkEndOffset - reader.getOffset();
                 cel.compressedData = reader.readBytes(compressedSize);
                 break;
 
@@ -450,7 +451,7 @@ export class AsepriteParser {
                 cel.yFlipMask = reader.readDWord();
                 cel.diagonalFlipMask = reader.readDWord(); // Swap X/Y axis
                 reader.skip(10); // Reserved bytes
-                const tilemapCompressedSize = reader.getRemainingBytes();
+                const tilemapCompressedSize = chunkEndOffset - reader.getOffset();
                 cel.compressedData = reader.readBytes(tilemapCompressedSize);
                 break;
         }
@@ -756,10 +757,17 @@ export class AsepriteParser {
      * Decompress ZLIB compressed image data (spec NOTE.3)
      * Used for compressed image and tilemap cel types
      * Data format matches raw format but compressed with ZLIB/DEFLATE
+     *
+     * Some editors other than Aseprite write the stream without its final block and
+     * Adler-32 trailer. Aseprite itself opens such files, so inflate whatever the chunk
+     * holds rather than insisting on a terminated stream (Z_SYNC_FLUSH instead of the
+     * default Z_FINISH). A complete stream is still checked as before.
      */
     static decompressImageData(compressedData: Uint8Array): Uint8Array {
         try {
-            return new Uint8Array(zlib.inflateSync(Buffer.from(compressedData)));
+            return new Uint8Array(
+                zlib.inflateSync(Buffer.from(compressedData), { finishFlush: zlib.constants.Z_SYNC_FLUSH })
+            );
         } catch (error) {
             throw new Error(`Failed to decompress image data: ${error}`);
         }
