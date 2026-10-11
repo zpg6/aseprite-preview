@@ -171,6 +171,15 @@ export class AsepriteEditorProvider implements vscode.CustomReadonlyEditorProvid
               <span>Duration:</span> <span id="totalDuration">-</span>
             </div>
           </div>
+          <div class="layers-panel" id="layersPanel" hidden>
+            <h3>Layers</h3>
+            <div class="layers-actions">
+              <button id="layersShowAll" class="layers-action" title="Show every layer">All</button>
+              <button id="layersHideAll" class="layers-action" title="Hide every layer">None</button>
+              <button id="layersReset" class="layers-action" title="Back to the visibility saved in the file">Reset</button>
+            </div>
+            <div id="layersList"></div>
+          </div>
           <div class="tags-panel" id="tagsPanel" style="display: none;">
             <h3>Animation Tags</h3>
             <div id="tagsList"></div>

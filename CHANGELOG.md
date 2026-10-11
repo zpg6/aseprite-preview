@@ -4,9 +4,15 @@
 
 ### Added
 
+- Layers panel: every layer listed, indented under its group, with a checkbox to show or hide it in the preview. The boxes start from the visibility saved in the file and never change the file. All / None / Reset buttons, and Alt+click to show one layer alone
+
 ### Changed
 
 ### Fixed
+
+- Linked cels draw instead of leaving the layer blank on that frame
+- A hidden group hides the layers inside it
+- Export as PNG draws only the visible layers, with their opacity and blend mode, as the preview does
 
 ### Removed
 

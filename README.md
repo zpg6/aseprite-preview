@@ -14,6 +14,7 @@ Visual Studio Code / Cursor extension for quick previews of [Aseprite](https://g
 - 🎬 Play animations with frame controls
 - 🔍 Zoom from 1x to 16x
 - 📊 Show sprite info (size, frames, layers)
+- 👁️ Show or hide layers one by one, starting from the visibility saved in the file (the file is never changed)
 - 🎯 Toggle between smooth and pixel-perfect rendering
 - 🎭 Multiple background options
 - 📸 Export current frame as PNG

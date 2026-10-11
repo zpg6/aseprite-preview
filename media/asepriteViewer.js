@@ -8,6 +8,12 @@
     let currentTag = null;
     let animationId = null;
 
+    // Layer visibility is the viewer's own: it starts from the flags saved in
+    // the file and is never written back to it
+    let layers = [];
+    let layerParents = [];
+    let layerVisible = [];
+
     // DOM elements
     const canvas = document.getElementById("asepriteCanvas");
     const playPauseBtn = document.getElementById("playPause");
@@ -26,6 +32,11 @@
     const totalDurationSpan = document.getElementById("totalDuration");
     const tagsPanel = document.getElementById("tagsPanel");
     const tagsList = document.getElementById("tagsList");
+    const layersPanel = document.getElementById("layersPanel");
+    const layersList = document.getElementById("layersList");
+    const layersShowAllBtn = document.getElementById("layersShowAll");
+    const layersHideAllBtn = document.getElementById("layersHideAll");
+    const layersResetBtn = document.getElementById("layersReset");
 
     // Initialize
     document.addEventListener("DOMContentLoaded", () => {
@@ -41,6 +52,9 @@
         showGridCheckbox.addEventListener("change", updateRender);
         pixelPerfectCheckbox.addEventListener("change", updatePixelPerfect);
         backgroundSelect.addEventListener("change", updateBackground);
+        layersShowAllBtn.addEventListener("click", () => setAllLayers(true));
+        layersHideAllBtn.addEventListener("click", () => setAllLayers(false));
+        layersResetBtn.addEventListener("click", resetLayers);
 
         canvas.addEventListener("click", e => {
             if (asepriteData && asepriteData.frames.length > 1) {
@@ -83,9 +97,31 @@
                     frame.colorProfile.iccProfileData = new Uint8Array(frame.colorProfile.iccProfileData);
                 }
             });
+
+            resolveLinkedCels();
         }
 
         initializeViewer();
+    }
+
+    /**
+     * A linked cel carries no pixels of its own: it shares the cel on the same
+     * layer of an earlier frame. Point it at that cel's image so it draws.
+     */
+    function resolveLinkedCels() {
+        asepriteData.frames.forEach(frame => {
+            frame.cels.forEach(cel => {
+                if (cel.type !== 1 || cel.processedImageData) return;
+                const sourceFrame = asepriteData.frames[cel.linkedFrame];
+                const source = sourceFrame && sourceFrame.cels.find(c => c.layerIndex === cel.layerIndex);
+                if (!source || !source.processedImageData) return;
+                cel.x = source.x;
+                cel.y = source.y;
+                cel.width = source.width;
+                cel.height = source.height;
+                cel.processedImageData = source.processedImageData;
+            });
+        });
     }
 
     function initializeViewer() {
@@ -106,7 +142,8 @@
         });
         totalDurationSpan.textContent = `${totalDuration}ms`;
 
-        // Setup tags
+        // Setup layers and tags
+        setupLayers();
         setupTags();
 
         // Initialize renderer
@@ -131,6 +168,146 @@
             default:
                 return `${colorDepth}-bit`;
         }
+    }
+
+    function setupLayers() {
+        // Layers are defined once, in the first frame
+        layers = asepriteData.frames[0].layers || [];
+        layerParents = findLayerParents(layers);
+
+        // Keep the toggles across a reload of the view, but only if they
+        // still describe the same layers
+        const saved = vscode.getState();
+        const names = layers.map(layer => layer.name);
+        if (saved && Array.isArray(saved.layerVisible) && sameNames(saved.layerNames, names)) {
+            layerVisible = saved.layerVisible.slice();
+        } else {
+            layerVisible = layers.map(layer => (layer.flags & 1) !== 0);
+        }
+
+        if (layers.length === 0) {
+            layersPanel.hidden = true;
+            return;
+        }
+        layersPanel.hidden = false;
+        buildLayerList();
+    }
+
+    function sameNames(a, b) {
+        return Array.isArray(a) && a.length === b.length && a.every((name, i) => name === b[i]);
+    }
+
+    /**
+     * Each layer's group, or -1 at the top level. The file lists layers bottom
+     * to top, each followed by its children one child level deeper.
+     */
+    function findLayerParents(layers) {
+        const parents = [];
+        const stack = [];
+        layers.forEach((layer, index) => {
+            const level = layer.childLevel || 0;
+            stack.length = level;
+            parents[index] = level > 0 && stack[level - 1] !== undefined ? stack[level - 1] : -1;
+            stack[level] = index;
+        });
+        return parents;
+    }
+
+    /** A layer is drawn only if it and every group above it are visible */
+    function isLayerShown(index) {
+        for (let i = index; i >= 0; i = layerParents[i]) {
+            if (!layerVisible[i]) return false;
+        }
+        return true;
+    }
+
+    function shownLayers() {
+        return layers.map((_, index) => isLayerShown(index));
+    }
+
+    function buildLayerList() {
+        layersList.textContent = "";
+
+        // Top layer first, the way Aseprite lists them
+        for (let index = layers.length - 1; index >= 0; index--) {
+            const layer = layers[index];
+
+            const row = document.createElement("label");
+            row.className = "layer-item";
+            if (layer.type === 1) row.classList.add("group");
+            row.style.paddingLeft = `${8 + (layer.childLevel || 0) * 14}px`;
+            row.title = "Alt+click to show only this layer";
+            row.dataset.layer = String(index);
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = layerVisible[index];
+            checkbox.addEventListener("change", () => {
+                layerVisible[index] = checkbox.checked;
+                layersChanged();
+            });
+            // On the row, so it catches a click on the name as well as the box;
+            // cancelling it stops the box toggling
+            row.addEventListener("click", event => {
+                if (!event.altKey) return;
+                event.preventDefault();
+                soloLayer(index);
+            });
+
+            const name = document.createElement("span");
+            name.className = "layer-name";
+            name.textContent = layer.type === 1 ? `\u{1F4C1} ${layer.name}` : layer.name;
+
+            row.appendChild(checkbox);
+            row.appendChild(name);
+            layersList.appendChild(row);
+        }
+
+        updateLayerRows();
+    }
+
+    function updateLayerRows() {
+        layersList.querySelectorAll(".layer-item").forEach(row => {
+            const index = parseInt(row.dataset.layer);
+            row.querySelector("input").checked = layerVisible[index];
+            row.classList.toggle("inherited-hidden", layerVisible[index] && !isLayerShown(index));
+        });
+    }
+
+    function layersChanged() {
+        updateLayerRows();
+        vscode.setState({ layerNames: layers.map(layer => layer.name), layerVisible });
+        updateRender();
+    }
+
+    function setAllLayers(visible) {
+        layerVisible = layers.map(() => visible);
+        layersChanged();
+    }
+
+    function resetLayers() {
+        layerVisible = layers.map(layer => (layer.flags & 1) !== 0);
+        layersChanged();
+    }
+
+    /** Show this layer and the groups it sits in, and nothing else */
+    function soloLayer(index) {
+        layerVisible = layers.map(() => false);
+        for (let i = index; i >= 0; i = layerParents[i]) {
+            layerVisible[i] = true;
+        }
+        // Soloing a group shows everything inside it
+        if (layers[index].type === 1) {
+            layers.forEach((_, i) => {
+                for (let p = layerParents[i]; p >= 0; p = layerParents[p]) {
+                    if (p === index) {
+                        layerVisible[i] = true;
+                        break;
+                    }
+                }
+            });
+        }
+        layersChanged();
     }
 
     function setupTags() {
@@ -191,6 +368,7 @@
             backgroundColor: getBackgroundColor(),
             currentFrame: currentFrame,
             pixelPerfect: pixelPerfectCheckbox.checked,
+            shownLayers: shownLayers(),
         };
 
         renderer.render(options);
@@ -331,10 +509,9 @@
                 throw new Error("Invalid frame for export");
             }
 
-            // Render the current frame to export canvas at the selected scale
-            frame.cels.forEach(cel => {
-                renderCelToCanvas(cel, exportCtx, currentScale);
-            });
+            // Render the current frame to export canvas at the selected scale,
+            // with the same layers, opacities and blend modes as the preview
+            renderer.drawFrame(exportCtx, frame, currentScale, shownLayers());
 
             // Convert canvas to PNG data
             exportCanvas.toBlob(blob => {
@@ -367,93 +544,6 @@
                 type: "showError",
                 message: `Export failed: ${error.message}`,
             });
-        }
-    }
-
-    function renderCelToCanvas(cel, ctx, scale) {
-        if (!cel.width || !cel.height || !cel.processedImageData) return;
-
-        const imageData = cel.processedImageData;
-
-        // Create ImageData object
-        const canvasImageData = ctx.createImageData(cel.width, cel.height);
-
-        // Convert pixel data based on color depth
-        convertPixelDataForExport(imageData, canvasImageData.data, asepriteData.header.colorDepth);
-
-        // Create a temporary canvas to draw the cel
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = cel.width;
-        tempCanvas.height = cel.height;
-        const tempCtx = tempCanvas.getContext("2d");
-        tempCtx.imageSmoothingEnabled = false;
-
-        // Put the image data on the temporary canvas
-        tempCtx.putImageData(canvasImageData, 0, 0);
-
-        // Draw the scaled cel to the target canvas
-        ctx.drawImage(
-            tempCanvas,
-            0,
-            0,
-            cel.width,
-            cel.height,
-            cel.x * scale,
-            cel.y * scale,
-            cel.width * scale,
-            cel.height * scale
-        );
-    }
-
-    function convertPixelDataForExport(sourceData, targetData, colorDepth) {
-        const palette = asepriteData.globalPalette;
-
-        switch (colorDepth) {
-            case 32: // RGBA
-                for (let i = 0; i < sourceData.length; i++) {
-                    targetData[i] = sourceData[i];
-                }
-                break;
-
-            case 16: // Grayscale
-                for (let i = 0; i < sourceData.length; i += 2) {
-                    const pixelIndex = i / 2;
-                    const value = sourceData[i];
-                    const alpha = sourceData[i + 1];
-
-                    targetData[pixelIndex * 4] = value;
-                    targetData[pixelIndex * 4 + 1] = value;
-                    targetData[pixelIndex * 4 + 2] = value;
-                    targetData[pixelIndex * 4 + 3] = alpha;
-                }
-                break;
-
-            case 8: // Indexed
-                if (!palette) {
-                    console.error("No palette found for indexed color sprite");
-                    return;
-                }
-
-                for (let i = 0; i < sourceData.length; i++) {
-                    const colorIndex = sourceData[i];
-                    const paletteEntry = palette.entries[colorIndex - palette.firstColorIndex];
-
-                    if (paletteEntry) {
-                        targetData[i * 4] = paletteEntry.red;
-                        targetData[i * 4 + 1] = paletteEntry.green;
-                        targetData[i * 4 + 2] = paletteEntry.blue;
-                        targetData[i * 4 + 3] = paletteEntry.alpha;
-                    } else {
-                        targetData[i * 4] = 0;
-                        targetData[i * 4 + 1] = 0;
-                        targetData[i * 4 + 2] = 0;
-                        targetData[i * 4 + 3] = 0;
-                    }
-                }
-                break;
-
-            default:
-                console.error(`Unsupported color depth: ${colorDepth}`);
         }
     }
 
@@ -491,8 +581,22 @@
             const frame = this.asepriteFile.frames[currentFrame];
             if (!frame) return;
 
+            this.drawFrame(this.ctx, frame, scale, options.shownLayers);
+
+            // Draw grid if enabled
+            if (showGrid && header.gridWidth > 0 && header.gridHeight > 0) {
+                this.drawGrid(scale);
+            }
+        }
+
+        /**
+         * Composite one frame onto ctx at the given scale. shownLayers says,
+         * per layer index, whether that layer is drawn; without it the
+         * visibility saved in the file decides.
+         */
+        drawFrame(ctx, frame, scale, shownLayers) {
             // Collect and sort layers properly (using packages/renderer logic)
-            const layerRenderInfos = this.collectLayerRenderInfo(frame);
+            const layerRenderInfos = this.collectLayerRenderInfo(frame, shownLayers);
             layerRenderInfos.sort((a, b) => {
                 const orderA = a.layerIndex + a.zIndex;
                 const orderB = b.layerIndex + b.zIndex;
@@ -502,18 +606,15 @@
             // Render each layer with proper compositing
             for (const renderInfo of layerRenderInfos) {
                 if (renderInfo.visible) {
-                    this.renderLayer(frame, renderInfo, scale);
+                    this.renderLayer(ctx, frame, renderInfo, scale);
                 }
-            }
-
-            // Draw grid if enabled
-            if (showGrid && header.gridWidth > 0 && header.gridHeight > 0) {
-                this.drawGrid(scale);
             }
         }
 
-        collectLayerRenderInfo(frame) {
+        collectLayerRenderInfo(frame, shownLayers) {
             const renderInfos = [];
+            // Layer opacity is only meaningful when the header says it is valid
+            const layerOpacityValid = (this.asepriteFile.header.flags & 1) !== 0;
             const layerMap = new Map();
 
             // Use layers from first frame as they define the global layer layout
@@ -527,8 +628,9 @@
                 const layer = layerMap.get(cel.layerIndex);
                 if (!layer || layer.type === 1) continue; // Skip group layers
 
-                const visible = (layer.flags & 1) !== 0;
-                const opacity = (cel.opacity / 255) * (layer.opacity / 255);
+                const visible = shownLayers ? !!shownLayers[cel.layerIndex] : (layer.flags & 1) !== 0;
+                const layerOpacity = layerOpacityValid ? layer.opacity : 255;
+                const opacity = (cel.opacity / 255) * (layerOpacity / 255);
 
                 renderInfos.push({
                     layer,
@@ -542,7 +644,7 @@
             return renderInfos;
         }
 
-        renderLayer(frame, renderInfo, scale) {
+        renderLayer(ctx, frame, renderInfo, scale) {
             const cel = frame.cels.find(c => c.layerIndex === renderInfo.layerIndex);
             if (!cel) return;
 
@@ -558,11 +660,11 @@
             this.renderCel(cel, layerCtx);
 
             // Apply layer opacity and blend mode
-            this.ctx.save();
-            this.ctx.globalAlpha = renderInfo.opacity;
-            this.ctx.globalCompositeOperation = this.getBlendModeString(renderInfo.layer.blendMode);
+            ctx.save();
+            ctx.globalAlpha = renderInfo.opacity;
+            ctx.globalCompositeOperation = this.getBlendModeString(renderInfo.layer.blendMode);
 
-            this.ctx.drawImage(
+            ctx.drawImage(
                 layerCanvas,
                 0,
                 0,
@@ -574,7 +676,7 @@
                 layerCanvas.height * scale
             );
 
-            this.ctx.restore();
+            ctx.restore();
         }
 
         renderCel(cel, ctx) {

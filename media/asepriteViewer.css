@@ -182,10 +182,75 @@ body {
 }
 
 .sprite-info h3,
+.layers-panel h3,
 .tags-panel h3 {
     margin: 0 0 8px 0;
     font-size: 14px;
     font-weight: 600;
+}
+
+.layers-panel {
+    min-width: 180px;
+}
+
+.layers-panel[hidden] {
+    display: none;
+}
+
+.layers-actions {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+}
+
+.layers-action {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: none;
+    border-radius: 2px;
+    padding: 2px 8px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.layers-action:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+#layersList {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.layer-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.layer-item:hover {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
+.layer-item input {
+    margin: 0;
+    cursor: pointer;
+}
+
+.layer-item.group .layer-name {
+    font-weight: 600;
+}
+
+/* Ticked, but a group above it is hidden, so it is not drawn */
+.layer-item.inherited-hidden .layer-name {
+    opacity: 0.5;
+    font-style: italic;
 }
 
 .info-grid {
